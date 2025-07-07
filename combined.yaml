@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: myapp
+          image: algheglobal/k8scontainers:1.0
+          volumeMounts:
+            - name: data
+              mountPath: /opt
+      initContainers:  # apply services.yaml to make regular init containers finish
+        - name: init-myservice
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        - name: init-mydb
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup mydb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done"]
+        - name: logshipper
+          image: alpine:latest
+          restartPolicy: Always  # sidecar
+          command: ['sh', '-c', 'tail -F /opt/logs.txt']
+          volumeMounts:
+            - name: data
+              mountPath: /opt
+      volumes:
+        - name: data
+          emptyDir: {}
